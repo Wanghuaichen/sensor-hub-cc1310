@@ -1,0 +1,862 @@
+               .deffile adi_defs__0.asm
+               .deffile ddi_defs__0.asm
+               .deffile reg_defs__0.asm
+               .deffile sce_defs__0.asm
+               
+               ; Number of supported tasks
+               .define TASK_COUNT      1
+               
+               ; Resource-specified definitions, if any
+               ; (None)
+               
+               
+               .segment begin "Framework"
+               
+               
+               VectorTable:
+0000 ---- 1408                         jsr         PowerUp
+0001 ---- 040c                         jmp         TaskCtrlReqVector
+0002 ---- 1408                         jsr         PowerUp
+0003 ---- 042c                         jmp         AonRtcCh2Vector
+0004 ---- 1408                         jsr         PowerUp
+0005 ---- 0447                         jmp         Event0Vector
+0006 ---- 1408                         jsr         PowerUp
+0007 ---- 044d                         jmp         TaskAlertAckVector
+               
+               
+               
+               
+               PowerUp:
+                                       ; Deassert the power-down request
+0008 ---- 4436                         iobclr      #0, [#IOP_WUC_PWRDWNREQ]
+               
+                                       ; Wait for it to take effect
+0009 ---- 2437 /waitForPdAck:          iobtst      #0, [#IOP_WUC_PWRDWNACK]
+000a ---- aefe                         biob1       /waitForPdAck
+               
+               FwEmptyFunc:            ; Done
+000b ---- adb7                         rts
+               
+               
+               
+               
+               TaskCtrlReqVector:
+                                       ; Clear the vector flag
+000c ---- 6442                         iobset      #0, [#IOP_EVCTL_VECFLAGSCLR]
+               
+                                       ; For each task ...
+000d ---- 7000                         ld          R7, #0
+               /loop:
+                                           ; Save the task ID
+000e ---- 7c6b                             st          R7, [#fwCtrlInt/taskId]
+               
+                                           ; Handle initialize request, if any
+000f ---- 6872                             ld          R6, [#fwCtrlExt/bvTaskInitializeReq]
+0010 ---- 0068                             ld          R0, #pFwTaskInitializeFuncTable
+0011 ---- 1425                             jsr         /handleReq
+               
+                                           ; Handle execute request, if any
+0012 ---- 6873                             ld          R6, [#fwCtrlExt/bvTaskExecuteReq]
+0013 ---- 0069                             ld          R0, #pFwTaskExecuteFuncTable
+0014 ---- 1425                             jsr         /handleReq
+               
+                                           ; Handle terminate request, if any
+0015 ---- 6874                             ld          R6, [#fwCtrlExt/bvTaskTerminateReq]
+0016 ---- 006a                             ld          R0, #pFwTaskTerminateFuncTable
+0017 ---- 1425                             jsr         /handleReq
+               
+                                           ; Move on to the next task
+0018 ---- 786b                             ld          R7, [#fwCtrlInt/taskId]
+0019 ---- f801                             add         R7, #1
+               
+001a ---- fa01                         cmp         R7, #TASK_COUNT
+001b ---- bef2                         bneq        /loop
+               
+                                       ; Update which tasks are ...
+001c ---- 7870                         ld          R7, [#fwCtrlExt/bvActiveTasks]
+                                       ; ... currently active ...
+001d ---- 6872                         ld          R6, [#fwCtrlExt/bvTaskInitializeReq]
+001e ---- fd0e                         or          R7, R6
+                                       ; ... and inactive ...
+001f ---- 6874                         ld          R6, [#fwCtrlExt/bvTaskTerminateReq]
+0020 ---- ed92                         inv         R6
+0021 ---- fd06                         and         R7, R6
+0022 ---- 7c70                         st          R7, [#fwCtrlExt/bvActiveTasks]
+               
+                                       ; We're READY for another request
+0023 ---- 642d                         iobset      #IOB_EVCTL_SWEV_READY, [#IOP_EVCTL_SWEVSET]
+               
+                                       ; Generate an ALERT interrupt if needed before powering back down
+0024 ---- 0450                         jmp         GenAlertInterrupt;
+               
+               /handleReq:
+                                       ; Restore the task ID, and load the function pointer (here to avoid pipeline hazard)
+0025 ---- 786b                         ld          R7, [#fwCtrlInt/taskId]
+0026 ---- 8f1f                         ld          R0, [R7+R0]
+               
+                                       ; Skip this request?
+0027 ---- ed8f                         lsr         R6, R7
+0028 ---- ec01                         tst         R6, #0x0001
+0029 ---- be01                         bnz         /noSkip
+002a ---- adb7                             rts
+               /noSkip:
+                                       ; Make the call by jump, with return (rts) in the "called" function
+002b ---- 8db7                         jmp         R0
+               
+               
+               
+               
+               AonRtcCh2Vector:
+                                       ; Start clearing the RTC event
+002c ---- 6630                         iobset      #IOB_WUC_WUEV_RTC, [#IOP_WUC_WUEVCLR]
+               
+                                       ; Clear the vector flag
+002d ---- 6542                         iobset      #1, [#IOP_EVCTL_VECFLAGSCLR]
+               
+                                       ; For each task (R0 is the current task ID) ...
+002e ---- 0000                         ld          R0, #0
+               /loop:
+                                           ; ... that is active ...
+002f ---- 1870                             ld          R1, [#fwCtrlExt/bvActiveTasks]
+0030 ---- 9d88                             lsr         R1, R0
+0031 ---- 9c01                             tst         R1, #0x0001
+0032 ---- b60d                             bz          /skip
+               
+                                               ; Fetch number of RTC intervals until next execution
+0033 ---- 1067                                 ld          R1, #pFwTaskExecuteScheduleTable
+0034 ---- af19                                 ld          R2, [R1+R0]
+               
+                                               ; If not already 0, decrement and store. If then 0 ...
+0035 ---- aa00                                 cmp         R2, #0
+0036 ---- b609                                 beq         /skip
+0037 ---- a8ff                                 add         R2, #-1
+0038 ---- af39                                 st          R2, [R1+R0]
+0039 ---- be06                                 bnz         /skip
+               
+                                                   ; ... execute the task
+003a ---- 0c6b                                     st          R0, [#fwCtrlInt/taskId]
+003b ---- 8869                                     add         R0, #pFwTaskExecuteFuncTable
+003c ---- 8f08                                     ld          R0, [R0]
+                                                   ; Insert NOP to avoid pipeline hazard
+003d ---- fd47                                     nop
+003e ---- 9db7                                     jsr         R0
+003f ---- 086b                                     ld          R0, [#fwCtrlInt/taskId]
+               /skip:
+                                           ; Move on to the next task
+0040 ---- 8801                             add         R0, #1
+               
+0041 ---- 8a01                         cmp         R0, #TASK_COUNT
+0042 ---- beec                         bneq        /loop
+               
+                                       ; Wait for the ACK event to be cleared
+0043 ---- 262f /waitOnRtcClearing:     iobtst      #IOB_WUC_WUEV_RTC, [#IOP_WUC_WUEVFLAGS]
+0044 ---- aefe                         biob1       /waitOnRtcClearing
+0045 ---- 4630                         iobclr      #IOB_WUC_WUEV_RTC, [#IOP_WUC_WUEVCLR]
+               
+                                       ; Generate an ALERT interrupt if needed
+0046 ---- 0450                         jmp         GenAlertInterrupt;
+               
+               
+               
+               
+               Event0Vector:
+                                       ; Disable and clear the vector flag
+0047 ---- 5527                         iobclr      #IOB_EVCTL_VECCFG1_VEC2_EN, [#IOP_EVCTL_VECCFG1]
+0048 ---- 6642                         iobset      #2, [#IOP_EVCTL_VECFLAGSCLR]
+               
+                                       ; Set the task ID
+0049 ---- 0000                         ld          R0, #0
+004a ---- 0c6b                         st          R0, [#fwCtrlInt/taskId]
+               
+                                       ; Jump to the event task code
+004b ---- 140b                         jsr         FwEmptyFunc
+               
+                                       ; Generate an ALERT interrupt if needed
+004c ---- 0450                         jmp         GenAlertInterrupt;
+               
+               
+               
+               
+               TaskAlertAckVector:
+                                       ; Clear the vector flag
+004d ---- 6742                         iobset      #3, [#IOP_EVCTL_VECFLAGSCLR]
+               
+                                       ; Re-enable generation of ALERT interrupts
+004e ---- 03ff                         ld          R0, #-1
+004f ---- 0c6d                         st          R0, [#fwCtrlInt/alertGenMask]
+               
+                                       ; Fall through to GenAlertInterrupt to generate another ALERT interrupt if needed
+               
+               
+               
+               
+               GenAlertInterrupt:
+                                       ; Do we have any ALERT-generating flags pending?
+0050 ---- 786c                         ld          R7, [#fwCtrlInt/bvTaskIoAlert]
+               
+                                       ; Skip if the last I/O ALERT interrupt has not been acknowledged
+0051 ---- 686d                         ld          R6, [#fwCtrlInt/alertGenMask]
+0052 ---- ed37                         tst         R6, R7
+0053 ---- b605                         bz          /skipAlertGen
+               
+                                           ; Transfer I/O flags from internal to external
+0054 ---- 0000                             ld          R0, #0
+0055 ---- 0c6c                             st          R0, [#fwCtrlInt/bvTaskIoAlert]
+0056 ---- 7c71                             st          R7, [#fwCtrlExt/bvTaskIoAlert]
+               
+                                           ; Generate the ALERT interrupt, and clear the generation mask
+0057 ---- 652d                             iobset      #IOB_EVCTL_SWEV_ALERT, [#IOP_EVCTL_SWEVSET]
+0058 ---- 0c6d                             st          R0, [#fwCtrlInt/alertGenMask]
+               /skipAlertGen:
+                                       ; Fall through to PowerDown ...
+               
+               
+               
+               
+               PowerDown:
+                                       ; If there are no unacknowledged ALERTs and no vectors pending ...
+0059 ---- 786d                         ld          R7, [#fwCtrlInt/alertGenMask]
+005a ---- 686e                         ld          R6, [#fwCtrlInt/alertCanPdAuxMask]
+005b ---- fd0e                         or          R7, R6
+005c ---- f801                         add         R7, #1 ; 0xFFFF -> 0x0000
+005d ---- e92b                         in          R6, [#IOP_EVCTL_VECFLAGS]
+005e ---- fd0e                         or          R7, R6
+005f ---- be01                         bnz         /noPowerDown
+               
+                                           ; Assert the power-down request. We'll make sure that it has taken effect
+                                           ; or been completely ignored when waking up again
+0060 ---- 6436                             iobset      #0, [#IOP_WUC_PWRDWNREQ]
+               /noPowerDown:
+                                       ; Sleep until the next event
+0061 ---- bdb7 sleepInstr:             sleep
+               
+               
+               
+               
+0062 ---- 241a AdiDdiAcquire:          iobtst      #0, [#IOP_SMPH_SMPH0]
+0063 ---- a6fe                         biob0       AdiDdiAcquire
+0064 ---- adb7                         rts
+               
+0065 ---- 641a AdiDdiRelease:          iobset      #0, [#IOP_SMPH_SMPH0]
+0066 ---- adb7                         rts
+               
+               
+               
+               
+               ; RTC ticks until next execution, one word for each task
+               pFwTaskExecuteScheduleTable:
+0067 ---- 0000                         dw          #0
+               
+               ; Task code function pointers for each task code block, one word for each task
+               pFwTaskInitializeFuncTable:
+0068 ---- 007a                         dw          #temperatureSensor/initialize
+               pFwTaskExecuteFuncTable:
+0069 ---- 008a                         dw          #temperatureSensor/execute
+               pFwTaskTerminateFuncTable:
+006a ---- 01cd                         dw          #temperatureSensor/terminate
+               
+               ; Run-time logging log requests and masks, one bit for each struct, one word for each task
+               pRtlTaskLogReqTable:
+               ; (Run-time logging is not used in this project)
+               pRtlTaskLogMaskTable:
+               ; (Run-time logging is not used in this project)
+               
+               
+               ; Internal control data
+               fwCtrlInt:
+006b ---- 0000 /taskId:                dw          #0      ; ID of the currently running task
+006c ---- 0000 /bvTaskIoAlert:         dw          #0x0000 ; LSB = Normal data exchange, MSB = Overflow or underflow
+006d ---- ffff /alertGenMask:          dw          #0xFFFF ; Can generate an ALERT interrupt now? (0xFFFF = yes, 0x0000 = no)
+006e ---- 0000 /alertCanPdAuxMask:     dw          #0x0000 ; Can power down AUX domain after ALERT interrupt generation? (0xFFFF = yes, 0x0000 = no)
+006f ---- 0000 /rtlStructLockReq:      dw          #0x0000 ; Run-time logging struct lock request (0=idle -> 1=requested -> 2=ready -> access -> 0=idle)
+               
+               ; External control data, shared with the driver
+               fwCtrlExt:
+0070 ---- 0000 /bvActiveTasks:         dw          #0x0000 ; Indicates which tasks are currently active
+0071 ---- 0000 /bvTaskIoAlert:         dw          #0x0000 ; LSB = Normal data exchange, MSB = Overflow or underflow
+0072 ---- 0000 /bvTaskInitializeReq:   dw          #0x0000 ; Requests tasks to start
+0073 ---- 0000 /bvTaskExecuteReq:      dw          #0x0000 ; Requests tasks to execute once immediately
+0074 ---- 0000 /bvTaskTerminateReq:    dw          #0x0000 ; Requests tasks to stop
+               
+               
+               .segment end "Framework"
+               
+               
+               fwTaskDataStructures:
+               .segment begin "Task: Temperature Sensor"
+               temperatureSensor/cfg:
+               temperatureSensor/input:
+               temperatureSensor/output:
+               temperatureSensor/output/tempValid:
+0075 ---- 0000                         dw          #0
+               temperatureSensor/output/tempValue:
+0076 ---- 0000                         dw          #0
+               temperatureSensor/state:
+               temperatureSensor/state/convertT:
+0077 ---- 0044                         dw          #68
+               temperatureSensor/state/readScratchpad:
+0078 ---- 00be                         dw          #190
+               temperatureSensor/state/skipROM:
+0079 ---- 00cc                         dw          #204
+               .segment end "Task: Temperature Sensor"
+               
+               
+               .segment begin "Task: Temperature Sensor"
+               temperatureSensor/initialize:
+               ;? // Set `DIO25` as input
+               ;? gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);
+007a ---- 8910                         in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+007b 86f3 80ff                         and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+007d 8604 8200                         or          R0, #(1 << (2 * (5 & 0x7)))
+007f ---- 8b10                         out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;? 
+               ;? // Set `DIO25` output as low
+               ;? gpioClearOutput(AUXIO_I_TS_BUS);
+0080 ---- 550e                         iobclr      #(5 & 0x7), [#(IOP_AIODIO0_GPIODOUT + (5 >> 3))]
+               ;? 
+               ;? //Constants
+               ;? state.skipROM = 0xCC;
+0081 ---- 00cc                         ld          R0, #204
+0082 ---- 0c79                         st          R0, [#temperatureSensor/state/skipROM]
+               ;? state.readScratchpad = 0xBE;
+0083 ---- 00be                         ld          R0, #190
+0084 ---- 0c78                         st          R0, [#temperatureSensor/state/readScratchpad]
+               ;? state.convertT = 0x44;
+0085 ---- 0044                         ld          R0, #68
+0086 ---- 0c77                         st          R0, [#temperatureSensor/state/convertT]
+               ;? 
+               ;? //Schedule first execution
+               ;? fwScheduleTask(1);
+0087 ---- 0001                         ld          R0, #1
+0088 ---- 0c67                         st          R0, [#(pFwTaskExecuteScheduleTable + 0)]
+               temperatureSensor/initializeDone:
+0089 ---- adb7                         rts         
+                                       
+                                       
+                                       
+                                       
+               temperatureSensor/execute:
+               ;? //Code for reading temperature from DS18B20 temperature sensor.
+               ;? //skips rom and starts conversion then checks if temperature is ready
+               ;? //every 50ms before reading temperature value.
+               ;? //All settings are left to default for the DS18B20.
+               ;? //Written by Dillon Wiggins 02/13/18
+               ;? 
+               ;? //variables
+               ;? U16 dsend = 0;
+               ;? U16 drecv = 0;
+               ;? U16 dtemp = 0;
+               ;? 
+               ;? //initialize temperature sensor
+               ;? gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);           // pull bus low
+008a ---- 8910                         in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+008b 86f3 80ff                         and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+008d ---- 8200                         or          R0, #(0 << (2 * (5 & 0x7)))
+008e ---- 8b10                         out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;? fwDelayUs(480, FW_DELAY_RANGE_500_US);                  //delay 480us
+008f ---- 70b4                         ld          R7, #(((480 * 24 ) + ((1 << 6) - 1)) >> 6)
+0090 ---- 6006                         ld          R6, #6
+0091 ---- 15ce                         jsr         FwDelay
+               ;? gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);            // release bus
+0092 ---- 8910                         in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0093 86f3 80ff                         and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0095 8604 8200                         or          R0, #(1 << (2 * (5 & 0x7)))
+0097 ---- 8b10                         out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;? fwDelayUs(70, FW_DELAY_RANGE_100_US);                   //delay 70us
+0098 ---- 7069                         ld          R7, #(((70 * 24 ) + ((1 << 4) - 1)) >> 4)
+0099 ---- 6004                         ld          R6, #4
+009a ---- 15ce                         jsr         FwDelay
+               ;? gpioGetInputValue(AUXIO_I_TS_BUS; drecv);               //read bus value
+009b ---- 5005                         ld          R5, #5
+009c ---- 15d4                         jsr         gpioGetInputValue
+009d ---- dd47                         ld          R5, R7
+               ;? fwDelayUs(410, FW_DELAY_RANGE_500_US);                  //delay 410us
+009e ---- 709a                         ld          R7, #(((410 * 24 ) + ((1 << 6) - 1)) >> 6)
+009f ---- 6006                         ld          R6, #6
+00a0 ---- 15ce                         jsr         FwDelay
+               ;? 
+               ;? if(drecv == 1){//initialization failed
+00a1 ---- da01                         cmp         R5, #1
+00a2 ---- be03                         bneq        /id0092
+               ;?     output.tempValid = 0x0001;
+00a3 ---- 0001                             ld          R0, #1
+00a4 ---- 0c75                             st          R0, [#temperatureSensor/output/tempValid]
+               ;? } else {//initialization success
+00a5 ---- 04a8                         jmp         /id0094
+               /id0092:
+               ;?     output.tempValid = 0x0000;
+00a6 ---- 0000                             ld          R0, #0
+00a7 ---- 0c75                             st          R0, [#temperatureSensor/output/tempValid]
+               ;? }
+               /id0094:
+               ;? 
+               ;? //send skip ROM comand
+               ;? dsend = state.skipROM;
+00a8 ---- 5879                         ld          R5, [#temperatureSensor/state/skipROM]
+               ;? for(U16 n = 0; n < 8; n++) {
+00a9 ---- 0000                         ld          R0, #0
+               /id0115:
+               ;?     dtemp = dsend & 1;
+00aa ---- 9d45                             ld          R1, R5
+00ab ---- 9001                             and         R1, #1
+               ;? if(dtemp == 0){//write 0
+00ac ---- 9a00                             cmp         R1, #0
+00ad ---- be12                             bneq        /id0099
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+00ae ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00af 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00b1 ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+00b2 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+00b3 ---- 705a                                 ld          R7, #(((60 * 24 ) + ((1 << 4) - 1)) >> 4)
+00b4 ---- 6004                                 ld          R6, #4
+00b5 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+00b6 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00b7 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00b9 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+00bb ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+00bc ---- 7030                                 ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+00bd ---- 6000                                 ld          R6, #0
+00be ---- 15ce                                 jsr         FwDelay
+               ;?     } else {//write 1
+00bf ---- 04d1                             jmp         /id0101
+               /id0099:
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+00c0 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00c1 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00c3 ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+00c4 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+00c5 ---- 7078                                 ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+00c6 ---- 6000                                 ld          R6, #0
+00c7 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+00c8 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00c9 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00cb 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+00cd ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+00ce ---- 7056                                 ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+00cf ---- 6004                                 ld          R6, #4
+00d0 ---- 15ce                                 jsr         FwDelay
+               ;?     }
+               /id0101:
+               ;?     dsend >>= 1;                                        //shift out sent bit
+00d1 ---- dda9                             lsr         R5, #1
+               ;? }
+00d2 ---- 8801                         add         R0, #1
+00d3 ---- 8a08                         cmp         R0, #8
+00d4 ---- aed5                         bltu        /id0115
+               ;? 
+               ;? //send start temperature conversion command
+               ;? dsend = state.convertT;
+00d5 ---- 5877                         ld          R5, [#temperatureSensor/state/convertT]
+               ;? for(U16 n = 0; n < 8; n++) {
+00d6 ---- 0000                         ld          R0, #0
+               /id0134:
+               ;?     dtemp = dsend & 1;
+00d7 ---- 9d45                             ld          R1, R5
+00d8 ---- 9001                             and         R1, #1
+               ;? if(dtemp == 0){//write 0
+00d9 ---- 9a00                             cmp         R1, #0
+00da ---- be12                             bneq        /id0118
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+00db ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00dc 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00de ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+00df ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+00e0 ---- 705a                                 ld          R7, #(((60 * 24 ) + ((1 << 4) - 1)) >> 4)
+00e1 ---- 6004                                 ld          R6, #4
+00e2 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+00e3 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00e4 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00e6 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+00e8 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+00e9 ---- 7030                                 ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+00ea ---- 6000                                 ld          R6, #0
+00eb ---- 15ce                                 jsr         FwDelay
+               ;?     } else {//write 1
+00ec ---- 04fe                             jmp         /id0120
+               /id0118:
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+00ed ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00ee 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00f0 ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+00f1 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+00f2 ---- 7078                                 ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+00f3 ---- 6000                                 ld          R6, #0
+00f4 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+00f5 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+00f6 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+00f8 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+00fa ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+00fb ---- 7056                                 ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+00fc ---- 6004                                 ld          R6, #4
+00fd ---- 15ce                                 jsr         FwDelay
+               ;?     }
+               /id0120:
+               ;?     dsend >>= 1;                                        //shift out sent bit
+00fe ---- dda9                             lsr         R5, #1
+               ;? }
+00ff ---- 8801                         add         R0, #1
+0100 ---- 8a08                         cmp         R0, #8
+0101 ---- aed5                         bltu        /id0134
+               ;? 
+               ;? //read bus every 50ms until temperature is ready
+               ;? dtemp = 0;
+0102 ---- 1000                         ld          R1, #0
+               ;? do {
+               /id0136:
+               ;?     fwDelayUs(50000, FW_DELAY_RANGE_100_MS);           //delay 50ms
+0103 ---- 704a                             ld          R7, #(((50000 * 24 ) + ((1 << 14) - 1)) >> 14)
+0104 ---- 600e                             ld          R6, #14
+0105 ---- 15ce                             jsr         FwDelay
+               ;?     gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);       // pull bus low
+0106 ---- 8910                             in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0107 86f3 80ff                             and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0109 ---- 8200                             or          R0, #(0 << (2 * (5 & 0x7)))
+010a ---- 8b10                             out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?     fwDelayUs(5, FW_DELAY_RANGE_10_US);                 //delay 5us
+010b ---- 7078                             ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+010c ---- 6000                             ld          R6, #0
+010d ---- 15ce                             jsr         FwDelay
+               ;?     gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);        // release bus
+010e ---- 8910                             in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+010f 86f3 80ff                             and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0111 8604 8200                             or          R0, #(1 << (2 * (5 & 0x7)))
+0113 ---- 8b10                             out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?     fwDelayUs(2, FW_DELAY_RANGE_10_US);                 //delay 2us
+0114 ---- 7030                             ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+0115 ---- 6000                             ld          R6, #0
+0116 ---- 15ce                             jsr         FwDelay
+               ;?     gpioGetInputValue(AUXIO_I_TS_BUS; drecv);           //read bus value
+0117 ---- 5005                             ld          R5, #5
+0118 ---- 15d4                             jsr         gpioGetInputValue
+0119 ---- dd47                             ld          R5, R7
+               ;?     fwDelayUs(57, FW_DELAY_RANGE_100_US);               //delay 55us
+011a ---- 7056                             ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+011b ---- 6004                             ld          R6, #4
+011c ---- 15ce                             jsr         FwDelay
+               ;?     dtemp += 1;//increment value
+011d ---- 9801                             add         R1, #1
+               ;?     if(dtemp >= 16) {//should not take longer than 750ms for worst case
+011e ---- 9a10                             cmp         R1, #16
+011f ---- ae04                             bltu        /id0152
+               ;?         drecv = 1;
+0120 ---- 5001                                 ld          R5, #1
+               ;?         output.tempValid |= 0x0010;
+0121 ---- 0875                                 ld          R0, [#temperatureSensor/output/tempValid]
+0122 ---- 8210                                 or          R0, #16
+0123 ---- 0c75                                 st          R0, [#temperatureSensor/output/tempValid]
+               ;?     }
+               /id0152:
+               ;? } while(drecv == 0);
+0124 ---- da00                         cmp         R5, #0
+0125 ---- b6dd                         beq         /id0136
+               ;? 
+               ;? //delay for conversion to complete (1 second)
+               ;? //for(U16 n = 0; n < 10; n++) {
+               ;? //    fwDelayUs(100000, FW_DELAY_RANGE_100_MS);           //delay 100ms
+               ;? //}
+               ;? 
+               ;? 
+               ;? //initialize temperature sensor
+               ;? gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);           // pull bus low
+0126 ---- 8910                         in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0127 86f3 80ff                         and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0129 ---- 8200                         or          R0, #(0 << (2 * (5 & 0x7)))
+012a ---- 8b10                         out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;? fwDelayUs(480, FW_DELAY_RANGE_500_US);                  //delay 480us
+012b ---- 70b4                         ld          R7, #(((480 * 24 ) + ((1 << 6) - 1)) >> 6)
+012c ---- 6006                         ld          R6, #6
+012d ---- 15ce                         jsr         FwDelay
+               ;? gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);            // release bus
+012e ---- 8910                         in          R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+012f 86f3 80ff                         and         R0, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0131 8604 8200                         or          R0, #(1 << (2 * (5 & 0x7)))
+0133 ---- 8b10                         out         R0, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;? fwDelayUs(70, FW_DELAY_RANGE_100_US);                   //delay 70us
+0134 ---- 7069                         ld          R7, #(((70 * 24 ) + ((1 << 4) - 1)) >> 4)
+0135 ---- 6004                         ld          R6, #4
+0136 ---- 15ce                         jsr         FwDelay
+               ;? gpioGetInputValue(AUXIO_I_TS_BUS; drecv);               //read bus value
+0137 ---- 5005                         ld          R5, #5
+0138 ---- 15d4                         jsr         gpioGetInputValue
+0139 ---- dd47                         ld          R5, R7
+               ;? fwDelayUs(410, FW_DELAY_RANGE_500_US);                  //delay 410us
+013a ---- 709a                         ld          R7, #(((410 * 24 ) + ((1 << 6) - 1)) >> 6)
+013b ---- 6006                         ld          R6, #6
+013c ---- 15ce                         jsr         FwDelay
+               ;? 
+               ;? if(drecv == 1){//initialization failed
+013d ---- da01                         cmp         R5, #1
+013e ---- be04                         bneq        /id0170
+               ;?     output.tempValid |= 0x0100;
+013f ---- 0875                             ld          R0, [#temperatureSensor/output/tempValid]
+0140 8601 8200                             or          R0, #256
+0142 ---- 0c75                             st          R0, [#temperatureSensor/output/tempValid]
+               ;? }
+               /id0170:
+               ;? 
+               ;? //send skip ROM comand
+               ;? dsend = state.skipROM;
+0143 ---- 5879                         ld          R5, [#temperatureSensor/state/skipROM]
+               ;? for(U16 n = 0; n < 8; n++) {
+0144 ---- 0000                         ld          R0, #0
+               /id0192:
+               ;?     dtemp = dsend & 1;
+0145 ---- 9d45                             ld          R1, R5
+0146 ---- 9001                             and         R1, #1
+               ;? if(dtemp == 0){//write 0
+0147 ---- 9a00                             cmp         R1, #0
+0148 ---- be12                             bneq        /id0176
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+0149 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+014a 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+014c ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+014d ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+014e ---- 705a                                 ld          R7, #(((60 * 24 ) + ((1 << 4) - 1)) >> 4)
+014f ---- 6004                                 ld          R6, #4
+0150 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+0151 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0152 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0154 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+0156 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+0157 ---- 7030                                 ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+0158 ---- 6000                                 ld          R6, #0
+0159 ---- 15ce                                 jsr         FwDelay
+               ;?     } else {//write 1
+015a ---- 056c                             jmp         /id0178
+               /id0176:
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+015b ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+015c 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+015e ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+015f ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+0160 ---- 7078                                 ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+0161 ---- 6000                                 ld          R6, #0
+0162 ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+0163 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0164 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0166 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+0168 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+0169 ---- 7056                                 ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+016a ---- 6004                                 ld          R6, #4
+016b ---- 15ce                                 jsr         FwDelay
+               ;?     }
+               /id0178:
+               ;?     dsend >>= 1;                                        //shift out sent bit
+016c ---- dda9                             lsr         R5, #1
+               ;? }
+016d ---- 8801                         add         R0, #1
+016e ---- 8a08                         cmp         R0, #8
+016f ---- aed5                         bltu        /id0192
+               ;? 
+               ;? //send read scratchpad command
+               ;? dsend = state.readScratchpad;
+0170 ---- 5878                         ld          R5, [#temperatureSensor/state/readScratchpad]
+               ;? for(U16 n = 0; n < 8; n++) {
+0171 ---- 0000                         ld          R0, #0
+               /id0211:
+               ;?     dtemp = dsend & 1;
+0172 ---- 9d45                             ld          R1, R5
+0173 ---- 9001                             and         R1, #1
+               ;? if(dtemp == 0){//write 0
+0174 ---- 9a00                             cmp         R1, #0
+0175 ---- be12                             bneq        /id0195
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+0176 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0177 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0179 ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+017a ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+017b ---- 705a                                 ld          R7, #(((60 * 24 ) + ((1 << 4) - 1)) >> 4)
+017c ---- 6004                                 ld          R6, #4
+017d ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+017e ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+017f 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0181 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+0183 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+0184 ---- 7030                                 ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+0185 ---- 6000                                 ld          R6, #0
+0186 ---- 15ce                                 jsr         FwDelay
+               ;?     } else {//write 1
+0187 ---- 0599                             jmp         /id0197
+               /id0195:
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+0188 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0189 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+018b ---- 9200                                 or          R1, #(0 << (2 * (5 & 0x7)))
+018c ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+018d ---- 7078                                 ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+018e ---- 6000                                 ld          R6, #0
+018f ---- 15ce                                 jsr         FwDelay
+               ;?         gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+0190 ---- 9910                                 in          R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+0191 86f3 90ff                                 and         R1, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+0193 8604 9200                                 or          R1, #(1 << (2 * (5 & 0x7)))
+0195 ---- 9b10                                 out         R1, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?         fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+0196 ---- 7056                                 ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+0197 ---- 6004                                 ld          R6, #4
+0198 ---- 15ce                                 jsr         FwDelay
+               ;?     }
+               /id0197:
+               ;?     dsend >>= 1;                                        //shift out sent bit
+0199 ---- dda9                             lsr         R5, #1
+               ;? }
+019a ---- 8801                         add         R0, #1
+019b ---- 8a08                         cmp         R0, #8
+019c ---- aed5                         bltu        /id0211
+               ;? 
+               ;? //read in temperature bits
+               ;? dtemp = 0;
+019d ---- 1000                         ld          R1, #0
+               ;? for(U16 n = 0; n < 16; n++) {
+019e ---- 0000                         ld          R0, #0
+               /id0229:
+               ;?     dtemp <<= 1;//shift bits left
+019f ---- 9da1                             lsl         R1, #1
+               ;?     gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);       // pull bus low
+01a0 ---- d910                             in          R5, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+01a1 86f3 d0ff                             and         R5, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+01a3 ---- d200                             or          R5, #(0 << (2 * (5 & 0x7)))
+01a4 ---- db10                             out         R5, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?     fwDelayUs(5, FW_DELAY_RANGE_10_US);                 //delay 5us
+01a5 ---- 7078                             ld          R7, #(((5 * 24 ) + ((1 << 0) - 1)) >> 0)
+01a6 ---- 6000                             ld          R6, #0
+01a7 ---- 15ce                             jsr         FwDelay
+               ;?     gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);        // release bus
+01a8 ---- d910                             in          R5, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+01a9 86f3 d0ff                             and         R5, #((~(0x0003 << (2 * (5 & 0x7)))) & 0xFFFF)
+01ab 8604 d200                             or          R5, #(1 << (2 * (5 & 0x7)))
+01ad ---- db10                             out         R5, [#(IOP_AIODIO0_IOMODE + (5 >> 3))]
+               ;?     fwDelayUs(2, FW_DELAY_RANGE_10_US);                 //delay 2us
+01ae ---- 7030                             ld          R7, #(((2 * 24 ) + ((1 << 0) - 1)) >> 0)
+01af ---- 6000                             ld          R6, #0
+01b0 ---- 15ce                             jsr         FwDelay
+               ;?     gpioGetInputValue(AUXIO_I_TS_BUS; drecv);           //read bus value
+01b1 ---- 5005                             ld          R5, #5
+01b2 ---- 15d4                             jsr         gpioGetInputValue
+01b3 ---- dd47                             ld          R5, R7
+               ;?     fwDelayUs(57, FW_DELAY_RANGE_100_US);               //delay 55us
+01b4 ---- 7056                             ld          R7, #(((57 * 24 ) + ((1 << 4) - 1)) >> 4)
+01b5 ---- 6004                             ld          R6, #4
+01b6 ---- 15ce                             jsr         FwDelay
+               ;?     dtemp |= drecv;
+01b7 ---- 9d0d                             or          R1, R5
+               ;? }
+01b8 ---- 8801                         add         R0, #1
+01b9 ---- 8a10                         cmp         R0, #16
+01ba ---- aee4                         bltu        /id0229
+               ;? 
+               ;? //flipping bits since LSB is sent 1st
+               ;? drecv = dtemp;
+01bb ---- dd41                         ld          R5, R1
+               ;? dtemp = 0;
+01bc ---- 1000                         ld          R1, #0
+               ;? for(U16 n = 0; n < 16; n++) {
+01bd ---- 0000                         ld          R0, #0
+               /id0237:
+               ;?     dtemp <<= 1;                                        //shift bits left
+01be ---- 9da1                             lsl         R1, #1
+               ;?     dtemp |= drecv & 0x0001;                            //copy bit
+01bf ---- ed45                             ld          R6, R5
+01c0 ---- e001                             and         R6, #1
+01c1 ---- 9d0e                             or          R1, R6
+               ;?     drecv >>= 1;                                        //shift copied bit out
+01c2 ---- dda9                             lsr         R5, #1
+               ;? }
+01c3 ---- 8801                         add         R0, #1
+01c4 ---- 8a10                         cmp         R0, #16
+01c5 ---- aef8                         bltu        /id0237
+               ;? 
+               ;? output.tempValue = dtemp;                               //copy bits to output value
+01c6 ---- 1c76                         st          R1, [#temperatureSensor/output/tempValue]
+               ;? 
+               ;? fwGenAlertInterrupt();
+01c7 ---- 086c                         ld          R0, [#fwCtrlInt/bvTaskIoAlert]
+01c8 ---- 8201                         or          R0, #(1 << 0)
+01c9 ---- 0c6c                         st          R0, [#fwCtrlInt/bvTaskIoAlert]
+               ;? 
+               ;? // Schedule the next execution
+               ;? fwScheduleTask(1);
+01ca ---- 0001                         ld          R0, #1
+01cb ---- 0c67                         st          R0, [#(pFwTaskExecuteScheduleTable + 0)]
+               temperatureSensor/executeDone:
+01cc ---- adb7                         rts         
+                                       
+                                       
+                                       
+                                       
+               temperatureSensor/terminate:
+               temperatureSensor/terminateDone:
+01cd ---- adb7                         rts         
+               .segment end "Task: Temperature Sensor"
+               
+               
+               .segment begin "Procedure Libary"
+               ; 3 + 5 CPU cycles = 16 clock cycles = 0.66 microsecond are added to the specified delay (parameter
+               ; loading and timer configuration)
+               ;
+               ; PARAMETERS:
+               ;     R7 = Delay
+               ;     R6 = Prescaler exponent
+               ;
+               ; CLOBBERS:
+               ;     R6
+               FwDelay:
+                                       ; Set the delay
+01ce ---- fb0c                         out         R7, [#IOP_TIMER01_T0TARGET]
+               
+                                       ; Configure the timer (from clock, single-mode, prescaler exponent = R6)
+01cf ---- eda4                         lsl         R6, #4
+01d0 ---- eb09                         out         R6, [#IOP_TIMER01_T0CFG]
+               
+                                       ; Start the timer, wait for it to trigger, and stop it
+01d1 ---- 640b                         iobset      #0, [#IOP_TIMER01_T0CTL]
+01d2 ---- cdb1                         wev1        #WEVSEL_TIMER0
+01d3 ---- adb7                         rts
+               
+               
+               
+               
+               ; PARAMETERS:
+               ;     R5 = AUX I/O index
+               ;
+               ; CLOBBERS:
+               ;     R6, R7
+               gpioGetInputValue:
+                                       ; Get GPIOs 15:8
+01d4 ---- e913                         in          R6, [#IOP_AIODIO1_GPIODIN]
+01d5 ---- eda0                         lsl         R6, #8
+               
+                                       ; Get GPIOs 7:0 and combine
+01d6 ---- f912                         in          R7, [#IOP_AIODIO0_GPIODIN]
+01d7 ---- fd0e                         or          R7, R6
+               
+                                       ; Move the desired GPIO pin value into bit 0 and mask
+01d8 ---- fd8d                         lsr         R7, R5
+01d9 ---- f001                         and         R7, #0x0001
+01da ---- adb7                         rts
+               .segment end "Procedure Libary"
+               
+
+; Generated by DW-PC at 2018-02-15 15:07:47.744

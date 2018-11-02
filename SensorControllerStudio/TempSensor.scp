@@ -1,0 +1,401 @@
+<?xml version="1.0"?>
+<project name="Temperature Sensor" version="2.0.0.324">
+    <desc><![CDATA[Interfacing with DS18B20 temperature sensor]]></desc>
+    <pattr name="Apply default power mode">0</pattr>
+    <pattr name="Board">None</pattr>
+    <pattr name="Chip name">CC1310</pattr>
+    <pattr name="Chip package">QFN48 7x7 RGZ</pattr>
+    <pattr name="Chip revision">-</pattr>
+    <pattr name="Clock in active mode">0</pattr>
+    <pattr name="Code prefix"></pattr>
+    <pattr name="Default power mode">0</pattr>
+    <pattr name="Operating system">TI-RTOS</pattr>
+    <pattr name="Output directory">./</pattr>
+    <pattr name="RTC tick interval (16.16 format)">2000</pattr>
+    <pattr name="Run-time logging UART RX pin"></pattr>
+    <pattr name="Run-time logging UART TX pin"></pattr>
+    <task name="Temperature Sensor">
+        <desc><![CDATA[DS18B20 temperature sensor interface]]></desc>
+        <tattr name="SKIP_ROM" desc="command for skipping ROM" type="dec" content="const" scope="task" min="0" max="65535">204</tattr>
+        <tattr name="output.tempValid" desc="temperature valid" type="dec" content="struct" scope="task" min="0" max="65535">0</tattr>
+        <tattr name="output.tempValue" desc="temperature whole number" type="dec" content="struct" scope="task" min="0" max="65535">0</tattr>
+        <tattr name="state.convertT" desc="command to start temperature conversion" type="dec" content="struct" scope="task" min="0" max="65535">68</tattr>
+        <tattr name="state.readScratchpad" desc="command to read scratchpad data" type="dec" content="struct" scope="task" min="0" max="65535">190</tattr>
+        <tattr name="state.skipROM" desc="command to skip rom" type="dec" content="struct" scope="task" min="0" max="65535">204</tattr>
+        <resource_ref name="ADC" enabled="0"/>
+        <resource_ref name="AON Domain Functionality" enabled="0"/>
+        <resource_ref name="Accumulator-Based Math" enabled="0"/>
+        <resource_ref name="Analog Open-Drain Pins" enabled="0"/>
+        <resource_ref name="Analog Open-Source Pins" enabled="0"/>
+        <resource_ref name="Analog Pins" enabled="0"/>
+        <resource_ref name="COMPA" enabled="0"/>
+        <resource_ref name="COMPA Event Trigger" enabled="0"/>
+        <resource_ref name="COMPB" enabled="0"/>
+        <resource_ref name="COMPB Event Trigger" enabled="0"/>
+        <resource_ref name="Delay Insertion" enabled="1"/>
+        <resource_ref name="Differential Output Pins" enabled="0">
+            <io_usage name="LED_GREEN" label="green led">
+                <uattr name="Negative pin/0000"></uattr>
+                <uattr name="Positive pin/0000"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="Digital Input Pins" enabled="1">
+            <io_usage name="tsBus" label="temperature sensor input">
+                <uattr name="Configuration on initialization">1</uattr>
+                <uattr name="Configuration on uninitialization">-1</uattr>
+                <uattr name="Pin count">0</uattr>
+                <uattr name="Pin/0000">DIO25</uattr>
+                <uattr name="Pin/0001"></uattr>
+                <uattr name="Pin/0002"></uattr>
+                <uattr name="Pin/0003"></uattr>
+                <uattr name="Pin/0004"></uattr>
+                <uattr name="Pin/0005"></uattr>
+                <uattr name="Pin/0006"></uattr>
+                <uattr name="Pin/0007"></uattr>
+                <uattr name="Pin/0008"></uattr>
+                <uattr name="Pin/0009"></uattr>
+                <uattr name="Pin/0010"></uattr>
+                <uattr name="Pin/0011"></uattr>
+                <uattr name="Pin/0012"></uattr>
+                <uattr name="Pin/0013"></uattr>
+                <uattr name="Pin/0014"></uattr>
+                <uattr name="Pin/0015"></uattr>
+                <uattr name="Pin/0016"></uattr>
+                <uattr name="Pin/0017"></uattr>
+                <uattr name="Pin/0018"></uattr>
+                <uattr name="Pin/0019"></uattr>
+                <uattr name="Pin/0020"></uattr>
+                <uattr name="Pin/0021"></uattr>
+                <uattr name="Pin/0022"></uattr>
+                <uattr name="Pin/0023"></uattr>
+                <uattr name="Pin/0024"></uattr>
+                <uattr name="Pin/0025"></uattr>
+                <uattr name="Pin/0026"></uattr>
+                <uattr name="Pin/0027"></uattr>
+                <uattr name="Pin/0028"></uattr>
+                <uattr name="Pin/0029"></uattr>
+                <uattr name="Pin/0030"></uattr>
+                <uattr name="Pin/0031"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="Digital Open-Drain Pins" enabled="0">
+            <io_usage name="tsDrain" label="Pin to pull buss low">
+                <uattr name="Configuration on uninitialization">-1</uattr>
+                <uattr name="Output value on initialization">1</uattr>
+                <uattr name="Pin count">0</uattr>
+                <uattr name="Pin/0000">DIO26</uattr>
+                <uattr name="Pin/0001"></uattr>
+                <uattr name="Pin/0002"></uattr>
+                <uattr name="Pin/0003"></uattr>
+                <uattr name="Pin/0004"></uattr>
+                <uattr name="Pin/0005"></uattr>
+                <uattr name="Pin/0006"></uattr>
+                <uattr name="Pin/0007"></uattr>
+                <uattr name="Pin/0008"></uattr>
+                <uattr name="Pin/0009"></uattr>
+                <uattr name="Pin/0010"></uattr>
+                <uattr name="Pin/0011"></uattr>
+                <uattr name="Pin/0012"></uattr>
+                <uattr name="Pin/0013"></uattr>
+                <uattr name="Pin/0014"></uattr>
+                <uattr name="Pin/0015"></uattr>
+                <uattr name="Pin/0016"></uattr>
+                <uattr name="Pin/0017"></uattr>
+                <uattr name="Pin/0018"></uattr>
+                <uattr name="Pin/0019"></uattr>
+                <uattr name="Pin/0020"></uattr>
+                <uattr name="Pin/0021"></uattr>
+                <uattr name="Pin/0022"></uattr>
+                <uattr name="Pin/0023"></uattr>
+                <uattr name="Pin/0024"></uattr>
+                <uattr name="Pin/0025"></uattr>
+                <uattr name="Pin/0026"></uattr>
+                <uattr name="Pin/0027"></uattr>
+                <uattr name="Pin/0028"></uattr>
+                <uattr name="Pin/0029"></uattr>
+                <uattr name="Pin/0030"></uattr>
+                <uattr name="Pin/0031"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="Digital Open-Source Pins" enabled="0"/>
+        <resource_ref name="Digital Output Pins" enabled="0">
+            <io_usage name="LED_GREEN" label="green led">
+                <uattr name="Configuration on uninitialization">-1</uattr>
+                <uattr name="Output value on initialization">0</uattr>
+                <uattr name="Pin count">0</uattr>
+                <uattr name="Pin/0000">DIO7</uattr>
+                <uattr name="Pin/0001"></uattr>
+                <uattr name="Pin/0002"></uattr>
+                <uattr name="Pin/0003"></uattr>
+                <uattr name="Pin/0004"></uattr>
+                <uattr name="Pin/0005"></uattr>
+                <uattr name="Pin/0006"></uattr>
+                <uattr name="Pin/0007"></uattr>
+                <uattr name="Pin/0008"></uattr>
+                <uattr name="Pin/0009"></uattr>
+                <uattr name="Pin/0010"></uattr>
+                <uattr name="Pin/0011"></uattr>
+                <uattr name="Pin/0012"></uattr>
+                <uattr name="Pin/0013"></uattr>
+                <uattr name="Pin/0014"></uattr>
+                <uattr name="Pin/0015"></uattr>
+                <uattr name="Pin/0016"></uattr>
+                <uattr name="Pin/0017"></uattr>
+                <uattr name="Pin/0018"></uattr>
+                <uattr name="Pin/0019"></uattr>
+                <uattr name="Pin/0020"></uattr>
+                <uattr name="Pin/0021"></uattr>
+                <uattr name="Pin/0022"></uattr>
+                <uattr name="Pin/0023"></uattr>
+                <uattr name="Pin/0024"></uattr>
+                <uattr name="Pin/0025"></uattr>
+                <uattr name="Pin/0026"></uattr>
+                <uattr name="Pin/0027"></uattr>
+                <uattr name="Pin/0028"></uattr>
+                <uattr name="Pin/0029"></uattr>
+                <uattr name="Pin/0030"></uattr>
+                <uattr name="Pin/0031"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="Dynamic Power Control" enabled="0"/>
+        <resource_ref name="GPIO Event Trigger" enabled="0"/>
+        <resource_ref name="I2C Master" enabled="0">
+            <rattr name="SCL frequency">0</rattr>
+            <rattr name="SCL stretch timeout">1</rattr>
+            <io_usage>
+                <uattr name="SCL pin/0000"></uattr>
+                <uattr name="SDA pin/0000"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="ISRC" enabled="0"/>
+        <resource_ref name="Math and Logic" enabled="1"/>
+        <resource_ref name="Multi-Buffered Output Data Exchange" enabled="0">
+            <rattr name="Buffer count">2</rattr>
+            <rattr name="Indicate overflow at buffer check">1</rattr>
+            <rattr name="Indicate overflow at buffer switch">0</rattr>
+            <rattr name="Prevent overflow at buffer switch">1</rattr>
+        </resource_ref>
+        <resource_ref name="Peripheral Sharing" enabled="0"/>
+        <resource_ref name="Pulse Counter" enabled="0"/>
+        <resource_ref name="RTC Multi-Event Capture" enabled="0"/>
+        <resource_ref name="RTC-Based Execution Scheduling" enabled="1"/>
+        <resource_ref name="Reference DAC" enabled="0"/>
+        <resource_ref name="Run-Time Logging" enabled="0"/>
+        <resource_ref name="SPI Chip Select" enabled="0"/>
+        <resource_ref name="SPI Data Transfer" enabled="0">
+            <rattr name="Bit rate">0</rattr>
+            <rattr name="MISO configuration when inactive">-1</rattr>
+            <rattr name="MOSI configuration on initialization">0</rattr>
+            <rattr name="MOSI configuration on uninitialization">0</rattr>
+            <rattr name="SCLK configuration on initialization">0</rattr>
+            <rattr name="SCLK configuration on uninitialization">0</rattr>
+            <io_usage>
+                <uattr name="MISO pin/0000"></uattr>
+                <uattr name="MOSI pin/0000"></uattr>
+                <uattr name="SCLK pin/0000"></uattr>
+            </io_usage>
+        </resource_ref>
+        <resource_ref name="Signal Observation" enabled="0"/>
+        <resource_ref name="System CPU Alert" enabled="1"/>
+        <resource_ref name="System Event Trigger" enabled="0"/>
+        <resource_ref name="TDC" enabled="0"/>
+        <resource_ref name="Timer 0" enabled="0"/>
+        <resource_ref name="Timer 0 Event Trigger" enabled="0"/>
+        <resource_ref name="Timer 1" enabled="0"/>
+        <resource_ref name="Timer 1 Event Trigger" enabled="0"/>
+        <resource_ref name="Timer 2" enabled="0"/>
+        <resource_ref name="Timer 2 Event Trigger" enabled="0"/>
+        <resource_ref name="UART Emulator" enabled="0">
+            <rattr name="RX buffer size">64</rattr>
+            <rattr name="Required idle period before enabling RX">11</rattr>
+            <rattr name="TX buffer size">64</rattr>
+            <io_usage>
+                <uattr name="RX pin/0000"></uattr>
+                <uattr name="TX pin/0000"></uattr>
+            </io_usage>
+        </resource_ref>
+        <sccode name="event0" init_power_mode="0"><![CDATA[]]></sccode>
+        <sccode name="event1" init_power_mode="0"><![CDATA[]]></sccode>
+        <sccode name="event2" init_power_mode="0"><![CDATA[]]></sccode>
+        <sccode name="event3" init_power_mode="0"><![CDATA[]]></sccode>
+        <sccode name="execute" init_power_mode="0"><![CDATA[//Code for reading temperature from DS18B20 temperature sensor.
+//skips rom and starts conversion then checks if temperature is ready
+//every 50ms before reading temperature value.
+//All settings are left to default for the DS18B20.
+//Written by Dillon Wiggins 02/13/18
+
+//variables
+U16 dsend = 0;
+U16 drecv = 0;
+U16 dtemp = 0;
+
+//initialize temperature sensor
+gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);           // pull bus low
+fwDelayUs(480, FW_DELAY_RANGE_500_US);                  //delay 480us
+gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);            // release bus
+fwDelayUs(70, FW_DELAY_RANGE_100_US);                   //delay 70us
+gpioGetInputValue(AUXIO_I_TS_BUS; drecv);               //read bus value
+fwDelayUs(410, FW_DELAY_RANGE_500_US);                  //delay 410us
+
+if(drecv == 1){//initialization failed
+    output.tempValid = 0x0001;
+} else {//initialization success
+    output.tempValid = 0x0000;
+}
+
+//send skip ROM comand
+dsend = state.skipROM;
+for(U16 n = 0; n < 8; n++) {
+    dtemp = dsend & 1;
+if(dtemp == 0){//write 0
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+    } else {//write 1
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+    }
+    dsend >>= 1;                                        //shift out sent bit
+}
+
+//send start temperature conversion command
+dsend = state.convertT;
+for(U16 n = 0; n < 8; n++) {
+    dtemp = dsend & 1;
+if(dtemp == 0){//write 0
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+    } else {//write 1
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+    }
+    dsend >>= 1;                                        //shift out sent bit
+}
+
+//read bus every 50ms until temperature is ready
+dtemp = 0;
+do {
+    fwDelayUs(50000, FW_DELAY_RANGE_100_MS);           //delay 50ms
+    gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);       // pull bus low
+    fwDelayUs(5, FW_DELAY_RANGE_10_US);                 //delay 5us
+    gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);        // release bus
+    fwDelayUs(2, FW_DELAY_RANGE_10_US);                 //delay 2us
+    gpioGetInputValue(AUXIO_I_TS_BUS; drecv);           //read bus value
+    fwDelayUs(57, FW_DELAY_RANGE_100_US);               //delay 55us
+    dtemp += 1;//increment value
+    if(dtemp >= 16) {//should not take longer than 750ms for worst case
+        drecv = 1;
+        output.tempValid |= 0x0010;
+    }
+} while(drecv == 0);
+
+//delay for conversion to complete (1 second)
+//for(U16 n = 0; n < 10; n++) {
+//    fwDelayUs(100000, FW_DELAY_RANGE_100_MS);           //delay 100ms
+//}
+
+
+//initialize temperature sensor
+gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);           // pull bus low
+fwDelayUs(480, FW_DELAY_RANGE_500_US);                  //delay 480us
+gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);            // release bus
+fwDelayUs(70, FW_DELAY_RANGE_100_US);                   //delay 70us
+gpioGetInputValue(AUXIO_I_TS_BUS; drecv);               //read bus value
+fwDelayUs(410, FW_DELAY_RANGE_500_US);                  //delay 410us
+
+if(drecv == 1){//initialization failed
+    output.tempValid |= 0x0100;
+}
+
+//send skip ROM comand
+dsend = state.skipROM;
+for(U16 n = 0; n < 8; n++) {
+    dtemp = dsend & 1;
+if(dtemp == 0){//write 0
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+    } else {//write 1
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+    }
+    dsend >>= 1;                                        //shift out sent bit
+}
+
+//send read scratchpad command
+dsend = state.readScratchpad;
+for(U16 n = 0; n < 8; n++) {
+    dtemp = dsend & 1;
+if(dtemp == 0){//write 0
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(60, FW_DELAY_RANGE_100_US);           //delay 60us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(2, FW_DELAY_RANGE_10_US);             //delay 2us
+    } else {//write 1
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);   // pull bus low
+        fwDelayUs(5, FW_DELAY_RANGE_10_US);             //delay 5us
+        gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);    // release bus
+        fwDelayUs(57, FW_DELAY_RANGE_100_US);           //delay 57us
+    }
+    dsend >>= 1;                                        //shift out sent bit
+}
+
+//read in temperature bits
+dtemp = 0;
+for(U16 n = 0; n < 16; n++) {
+    dtemp <<= 1;//shift bits left
+    gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_OUTPUT);       // pull bus low
+    fwDelayUs(5, FW_DELAY_RANGE_10_US);                 //delay 5us
+    gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);        // release bus
+    fwDelayUs(2, FW_DELAY_RANGE_10_US);                 //delay 2us
+    gpioGetInputValue(AUXIO_I_TS_BUS; drecv);           //read bus value
+    fwDelayUs(57, FW_DELAY_RANGE_100_US);               //delay 55us
+    dtemp |= drecv;
+}
+
+//flipping bits since LSB is sent 1st
+drecv = dtemp;
+dtemp = 0;
+for(U16 n = 0; n < 16; n++) {
+    dtemp <<= 1;                                        //shift bits left
+    dtemp |= drecv & 0x0001;                            //copy bit
+    drecv >>= 1;                                        //shift copied bit out
+}
+
+output.tempValue = dtemp;                               //copy bits to output value
+
+fwGenAlertInterrupt();
+
+// Schedule the next execution
+fwScheduleTask(1);]]></sccode>
+        <sccode name="initialize" init_power_mode="0"><![CDATA[// Set `DIO25` as input
+gpioCfgMode(AUXIO_I_TS_BUS,GPIO_MODE_INPUT);
+
+// Set `DIO25` output as low
+gpioClearOutput(AUXIO_I_TS_BUS);
+
+//Constants
+state.skipROM = 0xCC;
+state.readScratchpad = 0xBE;
+state.convertT = 0x44;
+
+//Schedule first execution
+fwScheduleTask(1);]]></sccode>
+        <sccode name="terminate" init_power_mode="0"><![CDATA[]]></sccode>
+        <event_trigger active_count="1">0,1,2,3</event_trigger>
+        <tt_iter>run_execute</tt_iter>
+        <tt_struct>output.tempValue</tt_struct>
+        <rtl_struct></rtl_struct>
+        <rtl_task_sel en="1" struct_log_list="output"/>
+    </task>
+</project>

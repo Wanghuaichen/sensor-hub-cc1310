@@ -1,0 +1,84 @@
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__0' [Wed Sep 19 23:30:29 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1201311912'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__1' [Wed Sep 19 23:31:22 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.674946181'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__2' [Wed Sep 19 23:31:58 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.2073410460'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__3' [Wed Sep 19 23:32:49 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1188157061'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__4' [Wed Sep 19 23:33:26 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1041851022'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_for_speed__5' [Wed Sep 19 23:34:02 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1689746657'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__off' [Wed Sep 19 23:36:15 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1930747166'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__0' [Wed Sep 19 23:36:52 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1980371965'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__1' [Wed Sep 19 23:37:26 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.462416862'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__2' [Wed Sep 19 23:38:03 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.2111855829'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__3' [Wed Sep 19 23:38:40 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.1387674102'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
+
+!CONFIGURATION: 'com.ti.ccstudio.buildDefinitions.TMS470.Debug.506555539__opt_level__4' [Wed Sep 19 23:39:20 EDT 2018]
+
+	!TOOL: 'com.ti.ccstudio.buildDefinitions.TMS470_18.1.exe.compilerDebug.2051782218'
+
+		!NOTE: Deprecated build flag '--float_support=vfplib' was migrated to '--float_support=none'.
+
